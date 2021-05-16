@@ -41,20 +41,35 @@ def fast_gradient_attack(
 
     ##########################################################
     # YOUR CODE HERE
+
     loss = loss_fn(logits, y)
-    loss.backward(retain_graph=False, create_graph=False)
-    grad_loss = x.grad.data
+
+    grad_loss = torch.autograd.grad(loss, x, retain_graph=False, create_graph=False)[0]
 
     if norm == "inf":
-        x_pert = x + epsilon * grad_loss.sign()
+
+        x_pert = x + 3 * epsilon * grad_loss.sign()
+        # projection
+        delta = torch.clamp(x_pert - x, min=-epsilon, max=epsilon)
+
     else:
-        batch_size = x.shape[0]
+
+        batch_size = len(x)
+
         grad_norms = (
             torch.norm(grad_loss.view(batch_size, -1), p=int(norm), dim=1) + 1e-8
         )
         grad_loss = grad_loss / grad_norms.view(batch_size, 1, 1, 1)
-        x_pert = x.detach() + epsilon * grad_loss
+        x_pert = x.detach() + 3 * epsilon * grad_loss
 
+        # projection
+        delta = x_pert - x
+        delta_norms = torch.norm(delta.view(batch_size, -1), p=int(norm), dim=1)
+        factor = epsilon / delta_norms
+        factor = torch.min(factor, torch.ones_like(delta_norms))
+        delta = delta * factor.view(-1, 1, 1, 1)
+
+    x_pert = x + delta
     x_pert = torch.clamp(x_pert, 0, 1)
 
     ##########################################################

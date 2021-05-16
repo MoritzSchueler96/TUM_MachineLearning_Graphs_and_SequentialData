@@ -60,7 +60,7 @@ def train_model(
             accuracy = (y_hat == y).float().mean().item()
 
             accuracies.append(accuracy)
-            losses.append(loss)
+            losses.append(loss.detach())
             ##########################################################
     return losses, accuracies
 
@@ -106,6 +106,7 @@ def predict_model(
         logits = model(x)
         if attack_function is not None:
             x_pert = attack_function(logits, x, y, **attack_args)
+            model.zero_grad()
             logits = model(x_pert)
 
         y_hat = torch.argmax(logits, axis=1)
@@ -173,7 +174,21 @@ def evaluate_robustness_smoothing(
     for x, y in tqdm(test_loader, total=len(dataset)):
         ##########################################################
         # YOUR CODE HERE
-        ...
+        [top_class, radius] = model.certify(
+            x, num_samples_1, num_samples_2, alpha, certification_batch_size
+        )
+
+        # check if prediction can be certified
+        if radius != 0:
+            radii.append(radius)
+
+            # check if prediction is correct
+            if top_class == y:
+                correct_certified += 1
+            else:
+                false_predictions += 1
+        else:
+            abstains += 1
         ##########################################################
     avg_radius = torch.tensor(radii).mean().item()
     return dict(
