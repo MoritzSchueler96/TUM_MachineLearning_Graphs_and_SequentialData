@@ -130,14 +130,13 @@ class SmoothClassifier(nn.Module):
 
         top_class = self.predict(inputs, n0, alpha, batch_size)
 
-        class_counts = self._sample_noise_predictions(
-            inputs, num_samples, batch_size
-        ).cpu()
-        wins = class_counts[top_class]
-
         if top_class == -1:
             p_A_lower_bound = 0
         else:
+            class_counts = self._sample_noise_predictions(
+                inputs, num_samples, batch_size
+            ).cpu()
+            wins = class_counts[top_class]
             p_A_lower_bound = lower_confidence_bound(wins, num_samples, alpha)
         ##########################################################
 
@@ -184,12 +183,12 @@ class SmoothClassifier(nn.Module):
         # YOUR CODE HERE
         top_class = torch.argmax(class_counts)
         wins = class_counts[top_class]
-        conf = binom_test(wins, num_samples, p=0.5)
+        p = binom_test(wins, num_samples, p=0.5)
 
-        if conf > alpha:
-            return top_class
-        else:
+        if p > alpha:
             return -1
+        else:
+            return top_class
         ##########################################################
 
     def _sample_noise_predictions(

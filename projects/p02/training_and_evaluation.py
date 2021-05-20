@@ -106,7 +106,6 @@ def predict_model(
         logits = model(x)
         if attack_function is not None:
             x_pert = attack_function(logits, x, y, **attack_args)
-            model.zero_grad()
             logits = model(x_pert)
 
         y_hat = torch.argmax(logits, axis=1)
