@@ -128,16 +128,14 @@ class SmoothClassifier(nn.Module):
         ##########################################################
         # YOUR CODE HERE
 
-        top_class = self.predict(inputs, n0, alpha, batch_size)
+        class_counts = self._sample_noise_predictions(inputs, n0, batch_size).cpu()
+        top_class = torch.argmax(class_counts)
 
-        if top_class == -1:
-            p_A_lower_bound = 0
-        else:
-            class_counts = self._sample_noise_predictions(
-                inputs, num_samples, batch_size
-            ).cpu()
-            wins = class_counts[top_class]
-            p_A_lower_bound = lower_confidence_bound(wins, num_samples, alpha)
+        class_counts = self._sample_noise_predictions(
+            inputs, num_samples, batch_size
+        ).cpu()
+        wins = class_counts[top_class]
+        p_A_lower_bound = lower_confidence_bound(wins, num_samples, alpha)
         ##########################################################
 
         if p_A_lower_bound < 0.5:
@@ -226,14 +224,20 @@ class SmoothClassifier(nn.Module):
                 this_batch_size = min(num_remaining, batch_size)
                 ##########################################################
                 # YOUR CODE HERE
-                samples = inputs.repeat((this_batch_size, 1, 1, 1))
+                samples = inputs.repeat(this_batch_size, 1, 1, 1)
 
                 logits = self.forward(samples)
 
-                class_counts[torch.argmax(logits, axis=1)] += 1
+                # class_counts[torch.argmax(logits, axis=1)] += 1
+                predictions = torch.argmax(logits, axis=1)
+                one_hot = nn.functional.one_hot(predictions, self.num_classes)
+                one_hot = torch.sum(one_hot, axis=0)
+                class_counts += one_hot
+
                 num_remaining -= this_batch_size
 
-                ##########################################################
+            # print(class_counts)
+            ##########################################################
         return class_counts
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
