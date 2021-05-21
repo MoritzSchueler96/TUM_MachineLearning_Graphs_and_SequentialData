@@ -1,15 +1,8 @@
 import torch
-from torch.autograd import grad
 
 
-def fast_gradient_attack(
-    logits: torch.Tensor,
-    x: torch.Tensor,
-    y: torch.Tensor,
-    epsilon: float,
-    norm: str = "2",
-    loss_fn=torch.nn.functional.cross_entropy,
-):
+def fast_gradient_attack(logits: torch.Tensor, x: torch.Tensor, y: torch.Tensor, epsilon: float, norm: str = "2",
+                         loss_fn=torch.nn.functional.cross_entropy):
     """
     Perform a single-step projected gradient attack on the input x.
     Parameters

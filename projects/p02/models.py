@@ -15,19 +15,19 @@ class ConvNN(nn.Module):
     def __init__(self):
         super(ConvNN, self).__init__()
         self.sequential = nn.Sequential(
-            nn.Conv2d(1, 5, 5),
-            nn.ReLU(),
-            nn.BatchNorm2d(5),
-            nn.MaxPool2d(2),
-            nn.Conv2d(5, 5, 5),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Flatten(),
-            nn.Linear(80, 10),
-        )
+                             nn.Conv2d(1, 5, 5),
+                             nn.ReLU(),
+                             nn.BatchNorm2d(5),
+                             nn.MaxPool2d(2),
+                             nn.Conv2d(5, 5, 5),
+                             nn.ReLU(),
+                             nn.MaxPool2d(2),
+                             nn.Flatten(),
+                             nn.Linear(80, 10),
+                            )
 
     def forward(self, input):
-        assert input.min() >= 0 and input.max() <= 1.0
+        assert input.min() >= 0 and input.max() <= 1.
         return self.sequential(input)
 
     def device(self):
@@ -55,9 +55,7 @@ def lower_confidence_bound(num_class_A: int, num_samples: int, alpha: float) -> 
         The lower bound on the probability of the event occuring in a Bernoulli distribution.
 
     """
-    return proportion_confint(num_class_A, num_samples, alpha=2 * alpha, method="beta")[
-        0
-    ]
+    return proportion_confint(num_class_A, num_samples, alpha=2 * alpha, method="beta")[0]
 
 
 class SmoothClassifier(nn.Module):
@@ -88,14 +86,8 @@ class SmoothClassifier(nn.Module):
     def device(self):
         return self.base_classifier.device()
 
-    def certify(
-        self,
-        inputs: torch.Tensor,
-        n0: int,
-        num_samples: int,
-        alpha: float,
-        batch_size: int,
-    ) -> Tuple[int, float]:
+    def certify(self, inputs: torch.Tensor, n0: int, num_samples: int, alpha: float, batch_size: int) -> Tuple[int,
+                                                                                                               float]:
         """
         Certify the input sample using randomized smoothing.
 
@@ -150,9 +142,7 @@ class SmoothClassifier(nn.Module):
             ##########################################################
             return top_class, radius
 
-    def predict(
-        self, inputs: torch.tensor, num_samples: int, alpha: float, batch_size: int
-    ) -> int:
+    def predict(self, inputs: torch.tensor, num_samples: int, alpha: float, batch_size: int) -> int:
         """
         Predict a label for the input sample via the smooth classifier g(x).
 
@@ -169,31 +159,43 @@ class SmoothClassifier(nn.Module):
             The desired confidence level that the top class is indeed the most likely class. E.g. alpha=0.05 means that
             the expected error rate must not be larger than 5%.
         batch_size: int
-            The batch size to use during the prediction, i.e. how many noise samples to classify in parallel.
+            The batch si ze to use during the prediction, i.e. how many noise samples to classify in parallel.
 
         Returns
         -------
         int: the winning class or -1 in case the desired confidence level could not be reached.
         """
         self.base_classifier.eval()
-        class_counts = self._sample_noise_predictions(
-            inputs, num_samples, batch_size
-        ).cpu()
+        class_counts = self._sample_noise_predictions(inputs, num_samples, batch_size).cpu()
         ##########################################################
         # YOUR CODE HERE
+                
+        
         top_class = torch.argmax(class_counts)
         wins = class_counts[top_class]
-        p = binom_test(wins, num_samples, p=0.5)
-
+        p = binom_test(wins, torch.sum(class_counts), p=0.5)
         if p > alpha:
-            return -1
+            return SmoothClassifier.ABSTAIN
         else:
-            return top_class
+            return top2[0]
+        
+        
+        ##########################################################
+        
+        counts = self._sample_noise_predictions(inputs, num_samples, batch_size)
+        print(counts.shape, counts)
+        top2 = counts.argsort()[::-1][:2]
+        count1 = counts[top2[0]]
+        count2 = counts[top2[1]]
+        if binom_test(count1, count1 + count2, p=0.5) > alpha:
+            return Smooth.ABSTAIN
+        else:
+            return top2[0]
+        
+        
         ##########################################################
 
-    def _sample_noise_predictions(
-        self, inputs: torch.tensor, num_samples: int, batch_size: int
-    ) -> torch.Tensor:
+    def _sample_noise_predictions(self, inputs: torch.tensor, num_samples: int, batch_size: int) -> torch.Tensor:
         """
         Sample random noise perturbations for the input sample and count the predicted classes of the base classifier.
 
@@ -217,23 +219,19 @@ class SmoothClassifier(nn.Module):
         num_remaining = num_samples
         with torch.no_grad():
             classes = torch.arange(self.num_classes).to(self.device())
-            class_counts = torch.zeros(
-                [self.num_classes], dtype=torch.long, device=self.device()
-            )
+            class_counts = torch.zeros([self.num_classes], dtype=torch.long, device=self.device())
             for it in range(ceil(num_samples / batch_size)):
                 this_batch_size = min(num_remaining, batch_size)
                 ##########################################################
                 # YOUR CODE HERE
-                samples = inputs.repeat(this_batch_size, 1, 1, 1)
-                # samples = torch.cat(this_batch_size * [inputs])
-                logits = self.forward(samples)
-                predictions = torch.argmax(logits, axis=1)
-                one_hot = nn.functional.one_hot(predictions, self.num_classes)
-                one_hot = torch.sum(one_hot, axis=0)
-                class_counts += one_hot
-
+                batch = inputs.repeat((this_batch_size, 1, 1, 1))
+                
+                outs = self.forward(batch)
+                
+                class_counts[torch.argmax(outs, axis= 1)] += 1
                 num_remaining -= this_batch_size
-
+         
+                
                 ##########################################################
         return class_counts
 

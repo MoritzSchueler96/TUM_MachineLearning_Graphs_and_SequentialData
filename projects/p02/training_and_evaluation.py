@@ -7,15 +7,8 @@ from tqdm.autonotebook import tqdm
 from models import SmoothClassifier
 
 
-def train_model(
-    model: nn.Module,
-    dataset: Dataset,
-    batch_size: int,
-    loss_function: Callable,
-    optimizer: Optimizer,
-    epochs: int = 1,
-    loss_args: Union[dict, None] = None,
-) -> Tuple[List, List]:
+def train_model(model: nn.Module, dataset: Dataset, batch_size: int, loss_function: Callable, optimizer: Optimizer,
+                epochs: int = 1, loss_args: Union[dict, None] = None) -> Tuple[List, List]:
     """
     Train a model on the input dataset.
     Parameters
@@ -49,7 +42,7 @@ def train_model(
     num_train_batches = int(torch.ceil(torch.tensor(len(dataset) / batch_size)).item())
     for epoch in range(epochs):
         train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        for x, y in tqdm(train_loader, total=num_train_batches):
+        for x,y in tqdm(train_loader, total=num_train_batches):
             ##########################################################
             # YOUR CODE HERE
             optimizer.zero_grad()
@@ -65,13 +58,8 @@ def train_model(
     return losses, accuracies
 
 
-def predict_model(
-    model: nn.Module,
-    dataset: Dataset,
-    batch_size: int,
-    attack_function: Union[Callable, None] = None,
-    attack_args: Union[Callable, None] = None,
-) -> float:
+def predict_model(model: nn.Module, dataset: Dataset, batch_size: int, attack_function: Union[Callable, None] = None,
+                  attack_args: Union[Callable, None] = None) -> float:
     """
     Use the model to predict a label for each sample in the provided dataset. Optionally performs an attack via
     the attack function first.
@@ -118,16 +106,10 @@ def predict_model(
     return accuracy
 
 
-def evaluate_robustness_smoothing(
-    base_classifier: nn.Module,
-    sigma: float,
-    dataset: Dataset,
-    num_samples_1: int = 1000,
-    num_samples_2: int = 10000,
-    alpha: float = 0.05,
-    certification_batch_size: float = 5000,
-    num_classes: int = 10,
-) -> Dict:
+def evaluate_robustness_smoothing(base_classifier: nn.Module, sigma: float, dataset: Dataset,
+                                  num_samples_1: int = 1000, num_samples_2: int = 10000,
+                                  alpha: float = 0.05, certification_batch_size: float = 5000, num_classes: int = 10
+                                  ) -> Dict:
     """
     Evaluate the robustness of a smooth classifier based on the input base classifier via randomized smoothing.
     Parameters
@@ -160,9 +142,7 @@ def evaluate_robustness_smoothing(
         * avg_radius: float. The average radius for which the predictions could be certified.
 
     """
-    model = SmoothClassifier(
-        base_classifier=base_classifier, sigma=sigma, num_classes=num_classes
-    )
+    model = SmoothClassifier(base_classifier=base_classifier, sigma=sigma, num_classes=num_classes)
     model.eval()
     test_loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
@@ -173,27 +153,19 @@ def evaluate_robustness_smoothing(
     for x, y in tqdm(test_loader, total=len(dataset)):
         ##########################################################
         # YOUR CODE HERE
-        [top_class, radius] = model.certify(
-            x, num_samples_1, num_samples_2, alpha, certification_batch_size
-        )
-
-        # check if prediction can be certified
-        if radius != 0:
+        y_hat, radius = model.certify(inputs = x, n0 = num_samples_1, num_samples= num_samples_2, alpha= alpha, batch_size=certification_batch_size)
+        
+        
+        
+        if y_hat < 0:
+            abstains +=1
+        elif y_hat == y:
+            correct_certified +=1
             radii.append(radius)
-
-            # check if prediction is correct
-            if top_class == y:
-                correct_certified += 1
-            else:
-                false_predictions += 1
         else:
-            abstains += 1
+            false_predictions +=1
+            radii.append(radius)
         ##########################################################
     avg_radius = torch.tensor(radii).mean().item()
-    return dict(
-        abstains=abstains,
-        false_predictions=false_predictions,
-        correct_certified=correct_certified,
-        avg_radius=avg_radius,
-    )
-
+    return dict(abstains=abstains, false_predictions=false_predictions, correct_certified=correct_certified,
+                avg_radius=avg_radius)
