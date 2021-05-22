@@ -52,6 +52,9 @@ def train_model(
         for x, y in tqdm(train_loader, total=num_train_batches):
             ##########################################################
             # YOUR CODE HERE
+            x=x.to(model.device())
+            y=y.to(model.device())
+        
             optimizer.zero_grad()
             loss, logits = loss_function(x, y, model, **loss_args)
             y_hat = torch.argmax(logits, axis=1)
@@ -102,7 +105,10 @@ def predict_model(
     for x, y in tqdm(test_loader, total=num_batches):
         ##########################################################
         # YOUR CODE HERE
+        x=x.to(model.device())
+        y=y.to(model.device())
         x.requires_grad_(True)
+        model.zero_grad()
         logits = model(x)
         if attack_function is not None:
             x_pert = attack_function(logits, x, y, **attack_args)
@@ -183,7 +189,7 @@ def evaluate_robustness_smoothing(
 
         if radius != 0:
             radii.append(radius)
-            if y_hat == y:
+            if y_hat.cpu() == y:
                 correct_certified += 1
             else:
                 false_predictions += 1

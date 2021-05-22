@@ -256,4 +256,4 @@ class SmoothClassifier(nn.Module):
         The logits for each input image.
         """
         noise = torch.randn_like(inputs) * self.sigma
-        return self.base_classifier((inputs + noise).clamp(0, 1))
+        return self.base_classifier((inputs + noise).clamp(0, 1).to(self.base_classifier.device()))
