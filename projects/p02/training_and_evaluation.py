@@ -56,11 +56,11 @@ def train_model(
             y=y.to(model.device())
         
             optimizer.zero_grad()
-            loss, logits = loss_function(x, y, model, **loss_args)
+            loss, logits = loss_function(x, y.cpu(), model, **loss_args)
             y_hat = torch.argmax(logits, axis=1)
             loss.backward()
             optimizer.step()
-            accuracy = (y_hat == y).float().mean().item()
+            accuracy = (y_hat == y.cpu()).float().mean().item()
 
             accuracies.append(accuracy)
             losses.append(loss.detach())
@@ -115,8 +115,8 @@ def predict_model(
             logits = model(x_pert)
 
         y_hat = torch.argmax(logits, axis=1)
-        predictions.append(y_hat)
-        targets.append(y)
+        predictions.append(y_hat.detach())
+        targets.append(y.detach())
         ##########################################################
     predictions = torch.cat(predictions)
     targets = torch.cat(targets)
