@@ -52,15 +52,15 @@ def train_model(
         for x, y in tqdm(train_loader, total=num_train_batches):
             ##########################################################
             # YOUR CODE HERE
-            x=x.to(model.device())
-            y=y.to(model.device())
-        
-            optimizer.zero_grad()
-            loss, logits = loss_function(x, y.cpu(), model, **loss_args)
+            x = x.to(model.device())
+
+            loss, logits = loss_function(x, y, model, **loss_args)
             y_hat = torch.argmax(logits, axis=1)
+
+            optimizer.zero_grad()  # maybe after step()
             loss.backward()
             optimizer.step()
-            accuracy = (y_hat == y.cpu()).float().mean().item()
+            accuracy = (y_hat == y).float().mean().item()
 
             accuracies.append(accuracy)
             losses.append(loss.detach())
@@ -105,8 +105,7 @@ def predict_model(
     for x, y in tqdm(test_loader, total=num_batches):
         ##########################################################
         # YOUR CODE HERE
-        x=x.to(model.device())
-        y=y.to(model.device())
+        x = x.to(model.device())
         x.requires_grad_(True)
         model.zero_grad()
         logits = model(x)
@@ -179,6 +178,7 @@ def evaluate_robustness_smoothing(
     for x, y in tqdm(test_loader, total=len(dataset)):
         ##########################################################
         # YOUR CODE HERE
+        x = x.to(model.device())
         y_hat, radius = model.certify(
             inputs=x,
             n0=num_samples_1,
@@ -186,7 +186,18 @@ def evaluate_robustness_smoothing(
             alpha=alpha,
             batch_size=certification_batch_size,
         )
+        if y_hat == y:
+            correct_certified += 1
+            radii.append(radius)
+        elif y_hat == SmoothClassifier.ABSTAIN:
+            abstains += 1
+            radii.append(0.0)
+        elif y_hat != y:
+            false_predictions += 1
+            radii.append(0.0)
 
+        """
+        our solution
         if radius != 0:
             radii.append(radius)
             if y_hat.cpu() == y:
@@ -195,6 +206,7 @@ def evaluate_robustness_smoothing(
                 false_predictions += 1
         else:
             abstains += 1
+        """
         ##########################################################
     avg_radius = torch.tensor(radii).mean().item()
     return dict(
